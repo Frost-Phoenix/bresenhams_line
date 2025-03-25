@@ -31,7 +31,7 @@ pub fn build(b: *std.Build) void {
     const raylib_artifact = raylib_dep.artifact("raylib");
 
     const exe = b.addExecutable(.{
-        .name = "Brainix_Runner",
+        .name = "bresenhams_line",
         .root_module = exe_mod,
     });
 
