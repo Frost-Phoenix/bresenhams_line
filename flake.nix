@@ -92,13 +92,13 @@
         # example: https://github.com/ralismark/nix-appimage
         apps.bundle = {
           type = "app";
-          program = "${packages.foreign}/bin/zig-sweeper";
+          program = "${packages.foreign}/bin/bresenhams_line";
         };
 
         # nix run .
         apps.default = {
           type = "app";
-          program = "${packages.default}/bin/zig-sweeper";
+          program = "${packages.default}/bin/bresenhams_line";
         };
 
         # nix run .#build
