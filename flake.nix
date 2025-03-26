@@ -34,9 +34,7 @@
         treefmtEval = treefmt-nix.lib.evalModule env.pkgs ./treefmt.nix;
         zigimportsPkg = zigimports.outputs.packages.${system}.default;
 
-        nativeBuildInputs = with env.pkgs; [
-          wayland-scanner
-        ];
+        nativeBuildInputs = with env.pkgs; [ wayland-scanner ];
 
         buildInputs = with env.pkgs; [
           libGL
