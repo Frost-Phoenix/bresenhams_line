@@ -20,7 +20,7 @@ pub fn main() !void {
 
             rl.clearBackground(.light_gray);
 
-            plotLine(14, 30, 18, 4);
+            plotLine(10, 5, 23, 32);
         }
 
         rl.beginDrawing();
@@ -28,14 +28,14 @@ pub fn main() !void {
 
         rl.clearBackground(.light_gray);
 
-        const src: rl.Rectangle = .init(0, 0, world_size, world_size);
+        const src: rl.Rectangle = .init(0, 0, world_size, -world_size);
         const dest: rl.Rectangle = .init(0, 0, screen_size, screen_size);
 
         rl.drawTexturePro(render_texture.texture, src, dest, .init(0, 0), 0, .white);
     }
 }
 
-pub fn plotLineLow(x0: i32, y0: i32, x1: i32, y1: i32) void {
+fn plotLineLow(x0: i32, y0: i32, x1: i32, y1: i32) void {
     const dx: i32 = x1 - x0;
     var dy: i32 = y1 - y0;
     var yi: i32 = 1;
@@ -59,7 +59,7 @@ pub fn plotLineLow(x0: i32, y0: i32, x1: i32, y1: i32) void {
     }
 }
 
-pub fn plotLineHigh(x0: i32, y0: i32, x1: i32, y1: i32) void {
+fn plotLineHigh(x0: i32, y0: i32, x1: i32, y1: i32) void {
     var dx: i32 = x1 - x0;
     const dy: i32 = y1 - y0;
     var xi: i32 = 1;
@@ -83,7 +83,7 @@ pub fn plotLineHigh(x0: i32, y0: i32, x1: i32, y1: i32) void {
     }
 }
 
-pub fn plotLine(x0: i32, y0: i32, x1: i32, y1: i32) void {
+fn plotLine(x0: i32, y0: i32, x1: i32, y1: i32) void {
     if (@abs(y1 - y0) < @abs(x1 - x0)) {
         if (x0 > x1) {
             plotLineLow(x1, y1, x0, y0);
