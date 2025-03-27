@@ -22,20 +22,31 @@ define  _D_step_H $21 ; 2 * (dy - dx)
 define  _D_step_V $22 ; 2 * (dx - dy)
 
 main:
-  lda #$00
+;   lda #$00
+;   sta pixel_start_x
+;   lda #$00
+;   sta pixel_start_y
+;   lda #$1f
+;   sta pixel_end_x
+;   lda #$09
+;   sta pixel_end_y
+; 
+;   jsr draw_line_horizontal
+
+  lda #$1a
   sta pixel_start_x
   lda #$00
   sta pixel_start_y
-  lda #$1f
+  lda #$05
   sta pixel_end_x
-  lda #$09
+  lda #$1f
   sta pixel_end_y
 
-  jsr draw_line_horizontal
+  jsr draw_line_vertical
   
   brk
 
-init_horizontal:
+init:
   ; dx
   lda pixel_end_x
   sec
@@ -50,6 +61,16 @@ init_horizontal:
   sec
   sbc pixel_start_y
   sta _dy
+  ; 2dy
+  clc
+  adc _dy
+  sta _2dy
+
+  rts
+
+init_horizontal:
+  jsr init
+  
   ; dir_y
   lda #$01
   sta _dir_y
@@ -57,14 +78,15 @@ init_horizontal:
   bpl init_horizontal_continue
   lda #$ff
   sta _dir_y
+  ; if dy < 0: dy = abs(dy)
   lda _dy
   jsr negate
   sta _dy
-init_horizontal_continue:
-  ; 2dy
-  clc
-  adc _dy
+  ; if dy < 0: 2dy = abs(2dy)
+  lda _2dy
+  jsr negate
   sta _2dy
+init_horizontal_continue:
   ; D
   lda _2dy
   sec
@@ -78,10 +100,47 @@ init_horizontal_continue:
   clc
   adc _D_step_H
   sta _D_step_H
-  ; D_step_V
   ; y 
   lda pixel_start_y
   sta pixel_current_y
+  
+  rts
+
+init_vertical:
+  jsr init
+
+  ; dir_x
+  lda #$01
+  sta _dir_x
+  lda _dx
+  bpl init_vertical_continue
+  lda #$ff
+  sta _dir_x
+  ; if dx < 0: dx = abs(dx)
+  lda _dx
+  jsr negate
+  sta _dx
+  ; if dx < 0: 2dx = abs(2dx)
+  lda _2dx
+  jsr negate
+  sta _2dx
+init_vertical_continue:
+  ; D
+  lda _2dx
+  sec
+  sbc _dy
+  sta _D
+  ; D_step_V
+  lda _dx
+  sec
+  sbc _dy
+  sta _D_step_V
+  clc
+  adc _D_step_V
+  sta _D_step_V
+  ; x
+  lda pixel_start_x
+  sta pixel_current_x
   
   rts
 
@@ -122,6 +181,46 @@ draw_line_horizontal:
     inc pixel_current_x
     cmp pixel_end_x
     bne line_horizontal_loop
+
+  rts
+
+draw_line_vertical:
+  jsr init_vertical
+
+  lda pixel_start_y
+  sta pixel_current_y
+
+  line_vertical_loop:
+    jsr pos_to_addr
+    jsr plot_pixel
+
+    lda _D
+    cmp #$00
+    beq line_vertical_loop_continue
+    cmp #$00
+    bmi line_vertical_loop_continue
+
+    lda pixel_current_x
+    clc
+    adc _dir_x
+    sta pixel_current_x
+    lda _D
+    clc
+    adc _D_step_V
+    sta _D
+    jmp line_vertical_loop_end_check
+    
+  line_vertical_loop_continue:
+    lda _D
+    clc
+    adc _2dx
+    sta _D
+
+  line_vertical_loop_end_check:
+    lda pixel_current_y
+    inc pixel_current_y
+    cmp pixel_end_y
+    bne line_vertical_loop
 
   rts
 
