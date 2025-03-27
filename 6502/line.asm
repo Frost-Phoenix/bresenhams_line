@@ -1,6 +1,8 @@
 ; Bresenham's line drawing algorithm
 ; https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#All_cases
 
+; #--------------------------------------------# ;
+
 define  pixel_current_L $00
 define  pixel_current_H $01
 define  pixel_current_x $02
@@ -9,6 +11,8 @@ define  pixel_start_x   $04
 define  pixel_start_y   $05
 define  pixel_end_x     $06
 define  pixel_end_y     $07
+define  pixel_swap_x    $08
+define  pixel_swap_y    $09
 
 define  _dx     $10
 define  _dy     $11
@@ -16,35 +20,30 @@ define  _2dx    $12
 define  _2dy    $13
 define  _dir_x  $14
 define  _dir_y  $15
+define  _abs_dx $16
+define  _abs_dy $17
 
 define  _D        $20
 define  _D_step_H $21 ; 2 * (dy - dx)
 define  _D_step_V $22 ; 2 * (dx - dy)
 
-main:
-;   lda #$00
-;   sta pixel_start_x
-;   lda #$00
-;   sta pixel_start_y
-;   lda #$1f
-;   sta pixel_end_x
-;   lda #$09
-;   sta pixel_end_y
-; 
-;   jsr draw_line_horizontal
+; #--------------------------------------------# ;
 
-  lda #$1a
-  sta pixel_start_x
+main:
   lda #$00
-  sta pixel_start_y
-  lda #$05
-  sta pixel_end_x
+  sta pixel_start_x
   lda #$1f
+  sta pixel_start_y
+  lda #$1a
+  sta pixel_end_x
+  lda #$00
   sta pixel_end_y
 
-  jsr draw_line_vertical
+  jsr draw_line
   
   brk
+
+; #--------------------------------------------# ;
 
 init:
   ; dx
@@ -65,12 +64,23 @@ init:
   clc
   adc _dy
   sta _2dy
-
+  ; abs(dx)
+  lda _dx
+  bpl _dx_positive
+  jsr negate
+  _dx_positive:
+    sta _abs_dx
+  ; abs(dy)
+  lda _dy
+  bpl _dy_positive
+  jsr negate
+  _dy_positive:
+    sta _abs_dy
   rts
 
+; #--------------------------------------------# ;
+
 init_horizontal:
-  jsr init
-  
   ; dir_y
   lda #$01
   sta _dir_y
@@ -106,9 +116,9 @@ init_horizontal_continue:
   
   rts
 
-init_vertical:
-  jsr init
+; #--------------------------------------------# ;
 
+init_vertical:
   ; dir_x
   lda #$01
   sta _dir_x
@@ -143,6 +153,51 @@ init_vertical_continue:
   sta pixel_current_x
   
   rts
+
+; #--------------------------------------------# ;
+
+draw_line:
+  jsr init
+
+  ; if abs(dy) < abs(dx)
+  lda _abs_dy
+  cmp _abs_dx
+  ; if true:
+  bcc _horizontal
+  ; if false:
+  jmp _vertical
+
+  _horizontal:
+    ; if start_x > end_x:
+    lda pixel_start_x
+    cmp pixel_end_x
+    bcs _horizontal_swap
+    jsr draw_line_horizontal
+    jmp _end
+  _horizontal_swap:
+    jsr swap_start_end_pos
+    ; dx and dy changes since pos swap, so neet to be recalculated
+    jsr init
+    jsr draw_line_horizontal
+    jmp _end
+  _vertical:
+    ; if start_y > end_y:
+    lda pixel_start_y
+    cmp pixel_end_y
+    bcs _vertical_swap
+    jsr draw_line_vertical
+    jmp _end
+  _vertical_swap:
+    jsr swap_start_end_pos
+    ; dx and dy changes since pos swap, so neet to be recalculated
+    jsr init
+    jsr draw_line_vertical
+    jmp _end
+
+  _end:
+    rts
+
+; #--------------------------------------------# ;
 
 draw_line_horizontal:
   jsr init_horizontal
@@ -184,6 +239,8 @@ draw_line_horizontal:
 
   rts
 
+; #--------------------------------------------# ;
+
 draw_line_vertical:
   jsr init_vertical
 
@@ -224,6 +281,8 @@ draw_line_vertical:
 
   rts
 
+; #--------------------------------------------# ;
+
 ; convert current pixel x,y to addr
 ; pixel_current_addr = $200 + y * 32 + x
 pos_to_addr:
@@ -262,6 +321,8 @@ pos_to_addr:
 
   rts
 
+; #--------------------------------------------# ;
+
 ; plot white pixel at the position saved in memory in pixelAddrL
 plot_pixel:
   ; save X and A registers
@@ -280,6 +341,29 @@ plot_pixel:
   pla
 
   rts
+
+; #--------------------------------------------# ;
+
+swap_start_end_pos:
+  ; start to tmp
+  lda pixel_start_x
+  sta pixel_swap_x
+  lda pixel_start_y
+  sta pixel_swap_y
+  ; end to start
+  lda pixel_end_x
+  sta pixel_start_x
+  lda pixel_end_y
+  sta pixel_start_y
+  ; tmp to end
+  lda pixel_swap_x
+  sta pixel_end_x
+  lda pixel_swap_y
+  sta pixel_end_y
+
+  rts
+
+; #--------------------------------------------# ;
 
 negate:
   eor #$ff
