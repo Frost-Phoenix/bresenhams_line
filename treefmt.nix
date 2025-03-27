@@ -7,6 +7,8 @@
   settings.global.excludes = [
     "*.md"
     "*.png"
+    "*.ods"
+    "*.asm"
     "*.lock"
     "*.zon2json-lock"
     "LICENSE"
