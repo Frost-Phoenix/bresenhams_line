@@ -76,6 +76,7 @@ init:
   jsr negate
   _dy_positive:
     sta _abs_dy
+
   rts
 
 ; #--------------------------------------------# ;
@@ -210,9 +211,7 @@ draw_line_horizontal:
     jsr plot_pixel
 
     lda _D
-    cmp #$00
     beq line_horizontal_loop_continue
-    cmp #$00
     bmi line_horizontal_loop_continue
 
     lda pixel_current_y
@@ -252,9 +251,7 @@ draw_line_vertical:
     jsr plot_pixel
 
     lda _D
-    cmp #$00
     beq line_vertical_loop_continue
-    cmp #$00
     bmi line_vertical_loop_continue
 
     lda pixel_current_x
