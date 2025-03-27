@@ -1,4 +1,5 @@
 ; Bresenham's line drawing algorithm
+; https://en.wikipedia.org/wiki/Bresenham%27s_line_algorithm#All_cases
 
 define  pixel_current_L $00
 define  pixel_current_H $01
@@ -16,26 +17,28 @@ define  _2dy    $13
 define  _dir_x  $14
 define  _dir_y  $15
 
-define  _D  $20
+define  _D        $20
+define  _D_step_H $21 ; 2 * (dy - dx)
+define  _D_step_V $22 ; 2 * (dx - dy)
 
 main:
   lda #$00
   sta pixel_start_x
-  lda #$20
-  sta pixel_start_y
-  lda #$20
-  sta pixel_end_x
   lda #$00
+  sta pixel_start_y
+  lda #$1f
+  sta pixel_end_x
+  lda #$09
   sta pixel_end_y
 
-  jsr draw_line_vertical
+  jsr draw_line_horizontal
   
   brk
 
-init_vertical:
+init_horizontal:
   ; dx
-  sec
   lda pixel_end_x
+  sec
   sbc pixel_start_x
   sta _dx
   ; 2dx
@@ -43,65 +46,82 @@ init_vertical:
   adc _dx
   sta _2dx
   ; dy
-  sec
   lda pixel_end_y
+  sec
   sbc pixel_start_y
   sta _dy
-  ; 2dy
-  clc
-  adc _dy
-  sta _2dy
   ; dir_y
   lda #$01
   sta _dir_y
-  cmp _dy
-  bpl init_vertical_continue
+  lda _dy
+  bpl init_horizontal_continue
   lda #$ff
   sta _dir_y
   lda _dy
   jsr negate
-init_vertical_continue:
+  sta _dy
+init_horizontal_continue:
+  ; 2dy
+  clc
+  adc _dy
+  sta _2dy
   ; D
-  sec
   lda _2dy
+  sec
   sbc _dx
   sta _D
+  ; D_step_H
+  lda _dy
+  sec
+  sbc _dx
+  sta _D_step_H
+  clc
+  adc _D_step_H
+  sta _D_step_H
+  ; D_step_V
   ; y 
   lda pixel_start_y
   sta pixel_current_y
   
   rts
 
-draw_line_vertical:
-  jsr init_vertical
+draw_line_horizontal:
+  jsr init_horizontal
 
   lda pixel_start_x
   sta pixel_current_x
 
-  line_loop:
+  line_horizontal_loop:
     jsr pos_to_addr
     jsr plot_pixel
 
     lda _D
     cmp #$00
-    bmi line_loop_continue
+    beq line_horizontal_loop_continue
+    cmp #$00
+    bmi line_horizontal_loop_continue
 
-    inc pixel_current_y
-    sec
-    lda _D
-    sbc _2dx
-    sta _D
-    
-  line_loop_continue:
+    lda pixel_current_y
     clc
+    adc _dir_y
+    sta pixel_current_y
     lda _D
+    clc
+    adc _D_step_H
+    sta _D
+    jmp line_horizontal_loop_end_check
+    
+  line_horizontal_loop_continue:
+    lda _D
+    clc
     adc _2dy
     sta _D
-    
-    inc pixel_current_x
+
+  line_horizontal_loop_end_check:
     lda pixel_current_x
+    inc pixel_current_x
     cmp pixel_end_x
-    bne line_loop
+    bne line_horizontal_loop
 
   rts
 
@@ -122,8 +142,8 @@ pos_to_addr:
 
     dey
 
-    clc
     lda pixel_current_L
+    clc
     adc #$20  ; 32
     sta pixel_current_L
 
@@ -136,11 +156,11 @@ pos_to_addr:
     jmp pta_loop_y
 
   pta_x:
-    clc
     lda pixel_current_L
+    clc
     adc pixel_current_x
     sta pixel_current_L
-  
+
   rts
 
 ; plot white pixel at the position saved in memory in pixelAddrL
@@ -163,7 +183,7 @@ plot_pixel:
   rts
 
 negate:
-  clc
   eor #$ff
+  clc
   adc #$01
   rts
