@@ -9,30 +9,30 @@ define  pixel_start_y   $05
 define  pixel_end_x     $06
 define  pixel_end_y     $07
 
-define  _dx   $10
-define  _dy   $11
-define  _2dx  $12
-define  _2dy  $13
-define  _D    $20
+define  _dx     $10
+define  _dy     $11
+define  _2dx    $12
+define  _2dy    $13
+define  _dir_x  $14
+define  _dir_y  $15
+
+define  _D  $20
 
 main:
   lda #$00
   sta pixel_start_x
-  lda #$00
+  lda #$20
   sta pixel_start_y
   lda #$20
   sta pixel_end_x
-  lda #$20
+  lda #$00
   sta pixel_end_y
 
-  jsr draw_line
-
-  ; jsr pos_to_addr
-  ; jsr plot_pixel
-
+  jsr draw_line_vertical
+  
   brk
 
-init:
+init_vertical:
   ; dx
   sec
   lda pixel_end_x
@@ -51,6 +51,16 @@ init:
   clc
   adc _dy
   sta _2dy
+  ; dir_y
+  lda #$01
+  sta _dir_y
+  cmp _dy
+  bpl init_vertical_continue
+  lda #$ff
+  sta _dir_y
+  lda _dy
+  jsr negate
+init_vertical_continue:
   ; D
   sec
   lda _2dy
@@ -62,8 +72,8 @@ init:
   
   rts
 
-draw_line:
-  jsr init
+draw_line_vertical:
+  jsr init_vertical
 
   lda pixel_start_x
   sta pixel_current_x
@@ -150,4 +160,10 @@ plot_pixel:
   tax
   pla
 
+  rts
+
+negate:
+  clc
+  eor #$ff
+  adc #$01
   rts
