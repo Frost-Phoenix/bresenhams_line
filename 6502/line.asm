@@ -7,12 +7,16 @@ define  pixel_current_L $00
 define  pixel_current_H $01
 define  pixel_current_x $02
 define  pixel_current_y $03
-define  pixel_start_x   $04
-define  pixel_start_y   $05
-define  pixel_end_x     $06
-define  pixel_end_y     $07
-define  pixel_swap_x    $08
-define  pixel_swap_y    $09
+define  pixel_cursor_x  $04
+define  pixel_cursor_y  $05
+define  pixel_start_x   $06
+define  pixel_start_y   $07
+define  pixel_end_x     $08
+define  pixel_end_y     $09
+define  pixel_swap_x    $0a
+define  pixel_swap_y    $0b
+
+define  pixel_current_selection $0d
 
 define  _dx     $10
 define  _dy     $11
@@ -27,25 +31,167 @@ define  _D        $20
 define  _D_step_H $21 ; 2 * (dy - dx)
 define  _D_step_V $22 ; 2 * (dx - dy)
 
+define  color_current_pixel $40
+define  color_drawing       $41
+define  color_cursor        $42
+
+define  keycode_w     $77
+define  keycode_a     $61
+define  keycode_s     $73
+define  keycode_d     $64
+define  keycode_r     $72
+define  keycode_enter $0d
+
+; System variables
+define  keycode_pressed $ff
+
 ; #--------------------------------------------# ;
 
-main:
-  lda #$00
-  sta pixel_start_x
-  lda #$1f
-  sta pixel_start_y
-  lda #$1a
-  sta pixel_end_x
-  lda #$00
-  sta pixel_end_y
+lda #$0f
+sta pixel_cursor_x
+lda #$0f
+sta pixel_cursor_y
+lda #$0c
+sta color_cursor
 
-  jsr draw_line
+; #--------------------------------------------# ;
+
+main_loop:
+  jsr update_keyboard
+  jsr pos_to_addr
+  jsr blink_cursor_pixel
+
+  jmp main_loop
+
+; #--------------------------------------------# ;
+
+blink_cursor_pixel:
+  jsr copy_cursor_to_current
+  ; save current pixel color
+  lda (pixel_current_L, X)
+  sta color_current_pixel
+  ; set current pixel color to cursor color
+  lda color_cursor
+  sta (pixel_current_L, X)
+  jsr delay
+  ; restore its original color
+  lda color_current_pixel
+  sta (pixel_current_L, X)
+  jsr delay
+
+  rts
+
+; #--------------------------------------------# ;
+
+update_keyboard:
+  lda keycode_pressed
+
+  cmp #keycode_w
+  beq move_up
+  cmp #keycode_a
+  beq move_left
+  cmp #keycode_s
+  beq move_down
+  cmp #keycode_d
+  beq move_right
+  cmp #keycode_r
+  beq reset
+  cmp #keycode_enter
+  beq select_pixel
+
+  jmp update_keyboard_end
+
+move_up:
+  lda pixel_cursor_y
+  ; if 0: can't move up
+  beq out_of_bound
+  dec pixel_cursor_y
+
+  jmp update_keyboard_end
+
+move_down:
+  lda pixel_cursor_y
+  ; if y == 31: can't move down
+  cmp #$1f
+  beq out_of_bound
+  inc pixel_cursor_y
+
+  jmp update_keyboard_end
+
+move_left:
+  lda pixel_cursor_x
+  ; if 0: can't move left
+  beq out_of_bound
+  dec pixel_cursor_x
+
+  jmp update_keyboard_end
+
+move_right:
+  lda pixel_cursor_x
+  ; if x == 31: can't move right
+  cmp #$1f
+  beq out_of_bound
+  inc pixel_cursor_x
+
+  jmp update_keyboard_end
+
+reset:
+  lda #$0f
+  sta pixel_cursor_x
+  sta pixel_cursor_y
+  lda #$00
+  sta pixel_current_selection
+
+  jsr reset_screen
+
+  jmp update_keyboard_end
+
+select_pixel:
+  lda pixel_current_selection
+  beq select_pixel_start
+  jmp select_pixel_end
+
+  select_pixel_start:
+    lda pixel_cursor_x
+    sta pixel_start_x
+    lda pixel_cursor_y
+    sta pixel_start_y
+    jmp select_end
+  select_pixel_end:
+    lda pixel_cursor_x
+    sta pixel_end_x
+    lda pixel_cursor_y
+    sta pixel_end_y
+    jmp select_end
+  select_end:
+    lda #$02
+    sta color_drawing
+    jsr copy_cursor_to_current
+    jsr plot_pixel
+    inc pixel_current_selection
+    ; if both start end end selected, draw line
+    lda pixel_current_selection
+    cmp #$02
+    bne update_keyboard_end
+    lda #$01
+    sta color_drawing
+    jsr draw_line
+    lda #$00
+    sta pixel_current_selection
+
+  jmp update_keyboard_end
+
+out_of_bound:
+update_keyboard_end:
+  ; resest pressed key
+  lda #$00
+  sta $ff
   
-  brk
+  rts
 
 ; #--------------------------------------------# ;
 
-init:
+init_line:
   ; dx
   lda pixel_end_x
   sec
@@ -81,12 +227,12 @@ init:
 
 ; #--------------------------------------------# ;
 
-init_horizontal:
+init_line_horizontal:
   ; dir_y
   lda #$01
   sta _dir_y
   lda _dy
-  bpl init_horizontal_continue
+  bpl init_line_horizontal_continue
   lda #$ff
   sta _dir_y
   ; if dy < 0: dy = abs(dy)
@@ -97,7 +243,7 @@ init_horizontal:
   lda _2dy
   jsr negate
   sta _2dy
-init_horizontal_continue:
+init_line_horizontal_continue:
   ; D
   lda _2dy
   sec
@@ -119,12 +265,12 @@ init_horizontal_continue:
 
 ; #--------------------------------------------# ;
 
-init_vertical:
+init_line_vertical:
   ; dir_x
   lda #$01
   sta _dir_x
   lda _dx
-  bpl init_vertical_continue
+  bpl init_line_vertical_continue
   lda #$ff
   sta _dir_x
   ; if dx < 0: dx = abs(dx)
@@ -135,7 +281,7 @@ init_vertical:
   lda _2dx
   jsr negate
   sta _2dx
-init_vertical_continue:
+init_line_vertical_continue:
   ; D
   lda _2dx
   sec
@@ -158,7 +304,7 @@ init_vertical_continue:
 ; #--------------------------------------------# ;
 
 draw_line:
-  jsr init
+  jsr init_line
 
   ; if abs(dy) < abs(dx)
   lda _abs_dy
@@ -178,7 +324,7 @@ draw_line:
   _horizontal_swap:
     jsr swap_start_end_pos
     ; dx and dy changes since pos swap, so neet to be recalculated
-    jsr init
+    jsr init_line
     jsr draw_line_horizontal
     jmp _end
   _vertical:
@@ -191,7 +337,7 @@ draw_line:
   _vertical_swap:
     jsr swap_start_end_pos
     ; dx and dy changes since pos swap, so neet to be recalculated
-    jsr init
+    jsr init_line
     jsr draw_line_vertical
     jmp _end
 
@@ -201,7 +347,7 @@ draw_line:
 ; #--------------------------------------------# ;
 
 draw_line_horizontal:
-  jsr init_horizontal
+  jsr init_line_horizontal
 
   lda pixel_start_x
   sta pixel_current_x
@@ -241,7 +387,7 @@ draw_line_horizontal:
 ; #--------------------------------------------# ;
 
 draw_line_vertical:
-  jsr init_vertical
+  jsr init_line_vertical
 
   lda pixel_start_y
   sta pixel_current_y
@@ -329,7 +475,7 @@ plot_pixel:
   ldx #$00
 
   ; plot pixel
-  lda #$01
+  lda color_drawing
   sta (pixel_current_L, X)
 
   ; restore X and A registers
@@ -362,8 +508,52 @@ swap_start_end_pos:
 
 ; #--------------------------------------------# ;
 
+copy_cursor_to_current:
+  lda pixel_cursor_x
+  sta pixel_current_x
+  lda pixel_cursor_y
+  sta pixel_current_y
+
+  rts
+
+; #--------------------------------------------# ;
+
+reset_screen:
+  lda #$01
+  reset_screen_loop_white:
+    sta $200, X
+    sta $300, X
+    sta $400, X
+    sta $500, X
+    inx
+    bne reset_screen_loop_white
+
+  lda #$00
+  reset_screen_loop_black:
+    sta $200, X
+    sta $300, X
+    sta $400, X
+    sta $500, X
+    inx
+    bne reset_screen_loop_black
+
+  rts
+
+; #--------------------------------------------# ;
+
 negate:
   eor #$ff
   clc
   adc #$01
+
+  rts
+
+; #--------------------------------------------# ;
+
+delay:
+  ldy #$88
+  delay_loop:
+    dey
+    bne delay_loop
+
   rts
